@@ -1,7 +1,3 @@
-// An example Parse.js Backbone application based on the todo app by
-// [Jérôme Gravel-Niquet](http://jgn.me/). This demo uses Parse to persist
-// the todo items and provide user authentication and sessions.
-
 $(function() {
 
   Parse.$ = jQuery;
@@ -9,7 +5,6 @@ $(function() {
   // Initialize Parse with your Parse application javascript keys
   Parse.initialize("TE4q6ZBPADb0MQNBxT9U7ueOyNT0CImidfmRyoag",
                    "xHTUCYKYCFzIoLm6Cy04ADbvJ1fHTiLUHoYFGNJg");
-
 
   // Todo Model
   // ----------
@@ -90,7 +85,6 @@ $(function() {
     events: {
       "click .toggle"              : "toggleDone",
       "dblclick label.todo-content" : "edit",
-      "click .todo-destroy"   : "clear",
       "keypress .edit"      : "updateOnEnter",
       "blur .edit"          : "close"
     },
@@ -101,7 +95,6 @@ $(function() {
     initialize: function() {
       _.bindAll(this, 'render', 'close', 'remove');
       this.model.bind('change', this.render);
-      this.model.bind('destroy', this.remove);
     },
 
     // Re-render the contents of the todo item.
@@ -133,11 +126,6 @@ $(function() {
       if (e.keyCode == 13) this.close();
     },
 
-    // Remove the item, destroy the model.
-    clear: function() {
-      this.model.destroy();
-    }
-
   });
 
   // The Application
@@ -146,13 +134,9 @@ $(function() {
   // The main view that lets a user manage their todo items
   var ManageTodosView = Parse.View.extend({
 
-    // Our template for the line of statistics at the bottom of the app.
-    statsTemplate: _.template($('#stats-template').html()),
-
     // Delegated events for creating new items, and clearing completed ones.
     events: {
-      "keypress #new-todo":  "createOnEnter",
-      "click #clear-completed": "clearCompleted",
+      "keypress #prompt":  "createOnEnter",
       "click #toggle-all": "toggleAllComplete",
       "click .log-out": "logOut",
       "click ul#filters a": "selectFilter"
@@ -169,9 +153,9 @@ $(function() {
       _.bindAll(this, 'addOne', 'addAll', 'addSome', 'render', 'toggleAllComplete', 'logOut', 'createOnEnter');
 
       // Main todo management template
-      this.$el.html(_.template($("#manage-todos-template").html()));
+      this.$el.html(_.template($("#manage-calendar-template").html()));
       
-      this.input = this.$("#new-todo");
+      this.input = this.$("#prompt"); // should be disabled
       this.allCheckbox = this.$("#toggle-all")[0];
 
       // Create our collection of Todos
@@ -205,12 +189,6 @@ $(function() {
       var done = this.todos.done().length;
       var remaining = this.todos.remaining().length;
 
-      this.$('#todo-stats').html(this.statsTemplate({
-        total:      this.todos.length,
-        done:       done,
-        remaining:  remaining
-      }));
-
       this.delegateEvents();
 
       this.allCheckbox.checked = !remaining;
@@ -228,13 +206,7 @@ $(function() {
       var filterValue = state.get("filter");
       this.$("ul#filters a").removeClass("selected");
       this.$("ul#filters a#" + filterValue).addClass("selected");
-      if (filterValue === "all") {
-        this.addAll();
-      } else if (filterValue === "completed") {
-        this.addSome(function(item) { return item.get('done') });
-      } else {
-        this.addSome(function(item) { return !item.get('done') });
-      }
+      this.addAll();
     },
 
     // Resets the filters to display all todos
@@ -279,12 +251,6 @@ $(function() {
 
       this.input.val('');
       this.resetFilters();
-    },
-
-    // Clear all done todo items, destroying their models.
-    clearCompleted: function() {
-      _.each(this.todos.done(), function(todo){ todo.destroy(); });
-      return false;
     },
 
     toggleAllComplete: function () {
@@ -362,7 +328,7 @@ $(function() {
   var AppView = Parse.View.extend({
     // Instead of generating a new element, bind to the existing skeleton of
     // the App already present in the HTML.
-    el: $("#todoapp"),
+    el: $("#calendarapp"),
 
     initialize: function() {
       this.render();
@@ -392,11 +358,11 @@ $(function() {
     },
 
     active: function() {
-      state.set({ filter: "active" });
+      state.set({ filter: "all" });
     },
 
     completed: function() {
-      state.set({ filter: "completed" });
+      state.set({ filter: "all" });
     }
   });
 

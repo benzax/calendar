@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Parse JavaScript Todo App</title>
+    <title>BZAX JavaScript Calendar App</title>
     <link href="css/calendar.css" media="all" rel="stylesheet" type="text/css"/>
     <script src="http://code.jquery.com/jquery-2.0.3.min.js"></script>
     <script src="js/underscore.js"></script>
@@ -12,17 +12,17 @@
 
   <body>
 
-    <!-- Todo App Interface -->
+    <!-- Calendar App Interface -->
 
-    <div id="todoapp">
+    <div id="calendarapp">
       <div class="title">
-        <h1>Parse Todos</h1>
+        <h1>Calendar</h1>
       </div>
 
       <div class="content">
       </div>
     </div>
-    
+
     <!-- Templates -->
 
     <script type="text/template" id="login-template">
@@ -46,7 +46,7 @@
       </div>
     </script>
 
-    <script type="text/template" id="manage-todos-template">
+    <script type="text/template" id="manage-calendar-template">
       <div id="user-info">
         Signed in as <%= Parse.User.current().escape("username") %> (<a href="#" class="log-out">Log out</a>)
       </div>
@@ -54,19 +54,16 @@
       <div class="section">
 
         <header id="header">
-          <input id="new-todo" placeholder="What needs to be done?" type="text" />
+          <input id="prompt" placeholder="Which evenings are you free?" type="text" disabled/>
         </header>
 
         <div id="main">
           <input id="toggle-all" type="checkbox">
           <label for="toggle-all">Mark all as complete</label>
-          
-          <ul id="todo-list">
-            <img src='images/spinner.gif' class='spinner' />
-          </ul>
+            <ul id="todo-list">
+              <img src='images/spinner.gif' class='spinner' />
+            </ul>
         </div>
-
-        <div id="todo-stats"></div>
       </div>
     </script>
 
@@ -75,30 +72,10 @@
         <div class="view">
           <input class="toggle" type="checkbox" <%= done ? 'checked="checked"' : '' %>>
           <label class="todo-content"><%= _.escape(content) %></label>
-          <button class="todo-destroy"></button>
         </div>
-        <input class="edit" value="<%= _.escape(content) %>">
+        <input class="edit" value="<%= _.escape(content) %>" disabled>
       </li>
     </script>
 
-    <script type="text/template" id="stats-template">
-      <footer id="footer">
-        <span id="todo-count"><strong><%= remaining %></strong> <%= remaining == 1 ? 'item' : 'items' %> left</span>
-        <ul id="filters">
-          <li>
-            <a href="javascript:void(0)" id="all" class="selected">All</a>
-          </li>
-          <li>
-            <a href="javascript:void(0)" id="active">Active</a>
-          </li>
-          <li>
-            <a href="javascript:void(0)" id="completed">Completed</a>
-          </li>
-        </ul>
-        <button id="clear-completed">Clear completed (<%= done %>)</button>
-      </footer>
-    </script>
-
   </body>
-
 </html>
