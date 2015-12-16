@@ -30,13 +30,6 @@ $(function() {
     }
   });
 
-  // This is the transient application state, not persisted on Parse
-  var AppState = Parse.Object.extend("AppState", {
-    defaults: {
-      filter: "all"
-    }
-  });
-
   // Todo Collection
   // ---------------
 
@@ -139,7 +132,6 @@ $(function() {
       "keypress #prompt":  "createOnEnter",
       "click #toggle-all": "toggleAllComplete",
       "click .log-out": "logOut",
-      "click ul#filters a": "selectFilter"
     },
 
     el: ".content",
@@ -150,7 +142,7 @@ $(function() {
     initialize: function() {
       var self = this;
 
-      _.bindAll(this, 'addOne', 'addAll', 'addSome', 'render', 'toggleAllComplete', 'logOut', 'createOnEnter');
+      _.bindAll(this, 'addOne', 'addAll', 'render', 'toggleAllComplete', 'logOut', 'createOnEnter');
 
       // Main todo management template
       this.$el.html(_.template($("#manage-calendar-template").html()));
@@ -171,8 +163,6 @@ $(function() {
 
       // Fetch all the todo items for this user
       this.todos.fetch();
-
-      state.on("change", this.filter, this);
     },
 
     // Logs out the user and shows the login view
@@ -186,34 +176,11 @@ $(function() {
     // Re-rendering the App just means refreshing the statistics -- the rest
     // of the app doesn't change.
     render: function() {
-      var done = this.todos.done().length;
       var remaining = this.todos.remaining().length;
 
       this.delegateEvents();
 
       this.allCheckbox.checked = !remaining;
-    },
-
-    // Filters the list based on which type of filter is selected
-    selectFilter: function(e) {
-      var el = $(e.target);
-      var filterValue = el.attr("id");
-      state.set({filter: filterValue});
-      Parse.history.navigate(filterValue);
-    },
-
-    filter: function() {
-      var filterValue = state.get("filter");
-      this.$("ul#filters a").removeClass("selected");
-      this.$("ul#filters a#" + filterValue).addClass("selected");
-      this.addAll();
-    },
-
-    // Resets the filters to display all todos
-    resetFilters: function() {
-      this.$("ul#filters a").removeClass("selected");
-      this.$("ul#filters a#all").addClass("selected");
-      this.addAll();
     },
 
     // Add a single todo item to the list by creating a view for it, and
@@ -227,13 +194,6 @@ $(function() {
     addAll: function(collection, filter) {
       this.$("#todo-list").html("");
       this.todos.each(this.addOne);
-    },
-
-    // Only adds some todos, based on a filtering function that is passed in
-    addSome: function(filter) {
-      var self = this;
-      this.$("#todo-list").html("");
-      this.todos.chain().filter(filter).each(function(item) { self.addOne(item) });
     },
 
     // If you hit return in the main input field, create new Todo model
@@ -250,7 +210,6 @@ $(function() {
       });
 
       this.input.val('');
-      this.resetFilters();
     },
 
     toggleAllComplete: function () {
@@ -343,32 +302,5 @@ $(function() {
     }
   });
 
-  var AppRouter = Parse.Router.extend({
-    routes: {
-      "all": "all",
-      "active": "active",
-      "completed": "completed"
-    },
-
-    initialize: function(options) {
-    },
-
-    all: function() {
-      state.set({ filter: "all" });
-    },
-
-    active: function() {
-      state.set({ filter: "all" });
-    },
-
-    completed: function() {
-      state.set({ filter: "all" });
-    }
-  });
-
-  var state = new AppState;
-
-  new AppRouter;
   new AppView;
-  Parse.history.start();
 });
