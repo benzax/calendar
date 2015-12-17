@@ -58,6 +58,25 @@ $(function() {
     // Todos are sorted by their original insertion order.
     comparator: function(todo) {
       return todo.get('order');
+    },
+    
+    // Create new items (for new users)
+    createAll: function() {
+      this.createEntry("Monday");
+      this.createEntry("Tuesday");
+      this.createEntry("Wednesday");
+      this.createEntry("Thursday");
+      this.createEntry("Friday");
+    },
+
+    createEntry: function(content) {
+      this.create({
+        content: content,
+        order:   this.nextOrder(),
+        done:    false,
+        user:    Parse.User.current(),
+        ACL:     new Parse.ACL(Parse.User.current())
+      });
     }
 
   });
@@ -78,7 +97,6 @@ $(function() {
     events: {
       "click .toggle"              : "toggleDone",
       "dblclick label.todo-content" : "edit",
-      "keypress .edit"      : "updateOnEnter",
       "blur .edit"          : "close"
     },
 
@@ -114,11 +132,6 @@ $(function() {
       $(this.el).removeClass("editing");
     },
 
-    // If you hit `enter`, we're through editing the item.
-    updateOnEnter: function(e) {
-      if (e.keyCode == 13) this.close();
-    },
-
   });
 
   // The Application
@@ -129,7 +142,6 @@ $(function() {
 
     // Delegated events for creating new items, and clearing completed ones.
     events: {
-      "keypress #prompt":  "createOnEnter",
       "click #toggle-all": "toggleAllComplete",
       "click .log-out": "logOut",
     },
@@ -142,7 +154,7 @@ $(function() {
     initialize: function() {
       var self = this;
 
-      _.bindAll(this, 'addOne', 'addAll', 'render', 'toggleAllComplete', 'logOut', 'createOnEnter');
+      _.bindAll(this, 'addOne', 'addAll', 'render', 'toggleAllComplete', 'logOut');
 
       // Main todo management template
       this.$el.html(_.template($("#manage-calendar-template").html()));
@@ -162,7 +174,14 @@ $(function() {
       this.todos.bind('all',     this.render);
 
       // Fetch all the todo items for this user
-      this.todos.fetch();
+      this.todos.fetch({
+        success: function(todos) {
+          // If no saved items, create them!
+          if (!todos.length) {
+            todos.createAll();
+          }
+        }
+      });
     },
 
     // Logs out the user and shows the login view
@@ -194,22 +213,6 @@ $(function() {
     addAll: function(collection, filter) {
       this.$("#todo-list").html("");
       this.todos.each(this.addOne);
-    },
-
-    // If you hit return in the main input field, create new Todo model
-    createOnEnter: function(e) {
-      var self = this;
-      if (e.keyCode != 13) return;
-
-      this.todos.create({
-        content: this.input.val(),
-        order:   this.todos.nextOrder(),
-        done:    false,
-        user:    Parse.User.current(),
-        ACL:     new Parse.ACL(Parse.User.current())
-      });
-
-      this.input.val('');
     },
 
     toggleAllComplete: function () {
