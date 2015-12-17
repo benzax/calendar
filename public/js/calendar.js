@@ -70,12 +70,15 @@ $(function() {
     },
 
     createEntry: function(content) {
+      var acl = new Parse.ACL(Parse.User.current());
+      acl.setPublicReadAccess(true); // In long run, scope to friends
+
       this.create({
         content: content,
         order:   this.nextOrder(),
         done:    false,
         user:    Parse.User.current(),
-        ACL:     new Parse.ACL(Parse.User.current())
+        ACL:     acl
       });
     }
 
@@ -179,6 +182,89 @@ $(function() {
           // If no saved items, create them!
           if (!todos.length) {
             todos.createAll();
+          }
+        }
+      });
+
+      this.checkDays();
+    },
+
+    checkDays: function() {
+      // Setup the query to check availability for monday
+      query = new Parse.Query(Todo);
+      query.equalTo("order", 1);
+      query.find({
+        success: function(results) {
+          var valid = true;
+          for (var i=0; i < results.length; ++i) {
+            valid = valid && results[i].get("done");
+          }
+          if (valid) {
+            console.log("Everyone is in for Monday");
+          }
+        }
+      });
+      
+      query = new Parse.Query(Todo);
+      query.equalTo("order", 2);
+      query.find({
+        success: function(results) {
+          var valid = true;
+          for (var i=0; i < results.length; ++i) {
+            if ( results[i].get("user") != Parse.User.current()) {
+              valid = valid && results[i].get("done");
+            }
+          }
+          if (valid) {
+            console.log("Everyone is in for Tuesday");
+          }
+        }
+      });
+      
+      query = new Parse.Query(Todo);
+      query.equalTo("order", 3);
+      query.find({
+        success: function(results) {
+          var valid = true;
+          for (var i=0; i < results.length; ++i) {
+            if ( results[i].get("user") != Parse.User.current()) {
+              valid = valid && results[i].get("done");
+            }
+          }
+          if (valid) {
+            console.log("Everyone is in for Wednesday");
+          }
+        }
+      });
+      
+      query = new Parse.Query(Todo);
+      query.equalTo("order", 4);
+      query.find({
+        success: function(results) {
+          var valid = true;
+          for (var i=0; i < results.length; ++i) {
+            if ( results[i].get("user") != Parse.User.current()) {
+              valid = valid && results[i].get("done");
+            }
+          }
+          if (valid) {
+            console.log("Everyone is in for Thursday");
+          }
+        }
+      });
+
+      query = new Parse.Query(Todo);
+      query.equalTo("order", 5);
+      query.find({
+        success: function(results) {
+          var valid = true;
+          for (var i=0; i < results.length; ++i) {
+            if ( results[i].get("user") != Parse.User.current()) {
+              valid = valid && results[i].get("done");
+            }
+          }
+          if (valid) {
+            console.log("Everyone is in for Friday");
           }
         }
       });
