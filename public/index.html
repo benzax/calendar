@@ -22,6 +22,18 @@
       <div class="content">
       </div>
     </div>
+    <div class="friends-content">
+      <table id="rsvp-list">
+        <tr>
+          <th>Labels</th>
+          <th>Monday</th>
+          <th>Tuesday</th>
+          <th>Wednesday</th>
+          <th>Thursday</th>
+          <th>Friday</th>
+        </tr>
+      </table>
+    </div>
 
     <!-- Templates -->
 
@@ -67,6 +79,14 @@
       </div>
     </script>
 
+    <script type="text/template" id="friends-calendar-template">
+      <div id="user-info">
+        <ul id="todo-list">
+          <img src='images/spinner.gif' class='spinner' />
+        </ul>
+      </div>
+    </script>
+
     <script type="text/template" id="item-template">
       <li class="<%= done ? 'completed' : '' %>">
         <div class="view">
@@ -75,6 +95,15 @@
         </div>
         <input class="edit" value="<%= _.escape(content) %>" disabled>
       </li>
+    </script>
+
+    <script type="text/template" id="rsvp-template">
+      <td><%= _.escape(name) %></td>
+      <td class="<%= monday    ? 'rsvp-free' : 'rsvp-busy' %>">&nbsp;</td>
+      <td class="<%= tuesday   ? 'rsvp-free' : 'rsvp-busy' %>">&nbsp;</td>
+      <td class="<%= wednesday ? 'rsvp-free' : 'rsvp-busy' %>">&nbsp;</td>
+      <td class="<%= thursday  ? 'rsvp-free' : 'rsvp-busy' %>">&nbsp;</td>
+      <td class="<%= friday    ? 'rsvp-free' : 'rsvp-busy' %>">&nbsp;</td>
     </script>
 
   </body>

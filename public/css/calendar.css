@@ -361,3 +361,19 @@ label[for='toggle-all'] {
 #calendarapp .content .mark-all-done {
     margin-left: 8px;
 }
+
+table, th, td {
+    table-layout: fixed;
+    width: 100px;
+    height: 70px;
+    border: 3px solid black;
+    border-collapse: collapse;
+}
+
+.rsvp-busy {
+    background-color: red; 
+}
+
+.rsvp-free {
+    background-color: green; 
+}

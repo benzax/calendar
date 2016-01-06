@@ -30,6 +30,32 @@ $(function() {
     }
   });
 
+  var RsvpList = Parse.Collection.extend({
+    
+    model: Todo,
+
+    makeTable() {
+      console.log(this);
+      var responses = {};
+      for (var i=0; i < this.models.length; ++i) {
+        var user = this.models[i].get("username");
+        if (user) {
+          console.log(user);
+          if (!(user in responses)) {
+            responses[user] = {name: user};
+          }
+          responses[user][this.models[i].get("content").toLowerCase()] =
+              this.models[i].get("done");
+        }
+      }
+      console.log(responses);
+      for (var key in responses) {
+        this.addOne(responses[key]);
+      };
+    }
+
+  });
+
   // Todo Collection
   // ---------------
 
@@ -78,6 +104,7 @@ $(function() {
         order:   this.nextOrder(),
         done:    false,
         user:    Parse.User.current(),
+        username: Parse.User.current().get("Name"),
         ACL:     acl
       });
     }
@@ -137,6 +164,31 @@ $(function() {
 
   });
 
+
+  // Rsvp View
+  // --------------
+
+  // The DOM element for a friend's rsvp
+  var RsvpView = Parse.View.extend({
+
+    //... is a table row
+    tagName:  "tr",
+
+    // Cache the template function for a single item.
+    template: _.template($('#rsvp-template').html()),
+
+    initialize: function() {
+    },
+
+    // Re-render the contents of the todo item.
+    render: function() {
+      // not sure why constructor magic doesn't work here
+      $(this.el).html(this.template(this.options.data));
+      return this;
+    },
+
+  });
+
   // The Application
   // ---------------
 
@@ -185,89 +237,6 @@ $(function() {
           }
         }
       });
-
-      this.checkDays();
-    },
-
-    checkDays: function() {
-      // Setup the query to check availability for monday
-      query = new Parse.Query(Todo);
-      query.equalTo("order", 1);
-      query.find({
-        success: function(results) {
-          var valid = true;
-          for (var i=0; i < results.length; ++i) {
-            valid = valid && results[i].get("done");
-          }
-          if (valid) {
-            console.log("Everyone is in for Monday");
-          }
-        }
-      });
-      
-      query = new Parse.Query(Todo);
-      query.equalTo("order", 2);
-      query.find({
-        success: function(results) {
-          var valid = true;
-          for (var i=0; i < results.length; ++i) {
-            if ( results[i].get("user") != Parse.User.current()) {
-              valid = valid && results[i].get("done");
-            }
-          }
-          if (valid) {
-            console.log("Everyone is in for Tuesday");
-          }
-        }
-      });
-      
-      query = new Parse.Query(Todo);
-      query.equalTo("order", 3);
-      query.find({
-        success: function(results) {
-          var valid = true;
-          for (var i=0; i < results.length; ++i) {
-            if ( results[i].get("user") != Parse.User.current()) {
-              valid = valid && results[i].get("done");
-            }
-          }
-          if (valid) {
-            console.log("Everyone is in for Wednesday");
-          }
-        }
-      });
-      
-      query = new Parse.Query(Todo);
-      query.equalTo("order", 4);
-      query.find({
-        success: function(results) {
-          var valid = true;
-          for (var i=0; i < results.length; ++i) {
-            if ( results[i].get("user") != Parse.User.current()) {
-              valid = valid && results[i].get("done");
-            }
-          }
-          if (valid) {
-            console.log("Everyone is in for Thursday");
-          }
-        }
-      });
-
-      query = new Parse.Query(Todo);
-      query.equalTo("order", 5);
-      query.find({
-        success: function(results) {
-          var valid = true;
-          for (var i=0; i < results.length; ++i) {
-            if ( results[i].get("user") != Parse.User.current()) {
-              valid = valid && results[i].get("done");
-            }
-          }
-          if (valid) {
-            console.log("Everyone is in for Friday");
-          }
-        }
-      });
     },
 
     // Logs out the user and shows the login view
@@ -305,6 +274,55 @@ $(function() {
       var done = this.allCheckbox.checked;
       this.todos.each(function (todo) { todo.save({'done': done}); });
     }
+  });
+
+  // The main view that lets a user see friends' availability
+  var FriendsView = Parse.View.extend({
+
+    el: ".friends-content",
+
+    // At initialization we bind to the relevant events on the `Todos`
+    // collection, when items are added or changed. Kick things off by
+    // loading any preexisting todos that might be saved to Parse.
+    initialize: function() {
+      var self = this;
+
+      _.bindAll(this, 'render');
+
+      this.rsvps = new RsvpList;
+
+      // Calendar Template needed, include but list, one for each friend?
+      //this.$el.html(_.template($("#friends-calendar-template").html()));
+      this.rsvps.query = new Parse.Query(Todo);
+      this.rsvps.query.notEqualTo("user", Parse.User.current());
+        
+      this.rsvps.addOne = _.bind(this.addOne, this);
+      //this.todos.bind('reset',   this.addAll);
+      //this.todos.bind('all',     this.render);
+
+      // Fetch all the todo items for this user
+      this.rsvps.fetch({
+        success: function(rsvps) {
+          rsvps.makeTable();
+        }
+      });
+
+      this.render();
+    },
+
+    // Re-rendering this probably is irrelevant?
+    render: function() {
+      this.delegateEvents();
+    },
+
+    // Add a friend's rsvps to the list by creating a view for that friend
+    // appending its element to the `<table>`.
+    addOne: function(rsvp) {
+      console.log(rsvp);
+      var view = new RsvpView({data: rsvp});
+      this.$("#rsvp-list").append(view.render().el);
+    },
+
   });
 
   var LogInView = Parse.View.extend({
@@ -348,9 +366,11 @@ $(function() {
       var username = this.$("#signup-username").val();
       var password = this.$("#signup-password").val();
       
-      Parse.User.signUp(username, password, { ACL: new Parse.ACL() }, {
+      Parse.User.signUp(username, password, { Name : username,
+          ACL: new Parse.ACL() }, {
         success: function(user) {
           new ManageTodosView();
+          new FriendsView();
           self.undelegateEvents();
           delete self;
         },
@@ -373,6 +393,22 @@ $(function() {
   });
 
   // The main view for the app
+  var CalendarView = Parse.View.extend({
+    // Instead of generating a new element, bind to the existing skeleton of
+    // the App already present in the HTML.
+    //el: $("#calendarapp"),
+
+    initialize: function() {
+      this.render();
+    },
+
+    render: function() {
+      new ManageTodosView();
+      new FriendsView();
+    }
+  });
+
+  // The main view for the app
   var AppView = Parse.View.extend({
     // Instead of generating a new element, bind to the existing skeleton of
     // the App already present in the HTML.
@@ -384,7 +420,7 @@ $(function() {
 
     render: function() {
       if (Parse.User.current()) {
-        new ManageTodosView();
+        new CalendarView();
       } else {
         new LogInView();
       }
