@@ -6,86 +6,62 @@ $(function() {
   Parse.initialize("TE4q6ZBPADb0MQNBxT9U7ueOyNT0CImidfmRyoag",
                    "xHTUCYKYCFzIoLm6Cy04ADbvJ1fHTiLUHoYFGNJg");
 
-  // Todo Model
-  // ----------
-
-  // Our basic Todo model has `content`, `order`, and `done` attributes.
-  var Todo = Parse.Object.extend("Todo", {
-    // Default attributes for the todo.
+  var RSVPModel = Parse.Object.extend("Todo", { // TODO: should probably be "RSVP" instead; needs server-side fix
     defaults: {
-      content: "empty todo...",
-      done: false
+      username: null,
+      user: null,
+      content: null, // content = day; TODO rename on server side
+      done: false // done = yes; TODO rename on server side
     },
 
-    // Ensure that each todo created has `content`.
-    initialize: function() {
-      if (!this.get("content")) {
-        this.set({"content": this.defaults.content});
-      }
-    },
-
-    // Toggle the `done` state of this todo item.
-    toggle: function() {
-      this.save({done: !this.get("done")});
+    setYes: function(yes) {
+      this.save({ done: yes });
     }
   });
 
-  var RsvpList = Parse.Collection.extend({
-    
-    model: Todo,
+  // TODO: eliminate the need for this by storing an array on the server side, maybe.
+  var dayIndex = {
+    Monday: 0,
+    Tuesday: 1,
+    Wednesday: 2,
+    Thursday: 3,
+    Friday: 4
+  };
+  var days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
-    makeTable() {
-      console.log(this);
+  var OthersRSVPList = Parse.Collection.extend({
+    model: RSVPModel,
+
+    getRenderData: function() {
       var responses = {};
-      for (var i=0; i < this.models.length; ++i) {
-        var user = this.models[i].get("username");
-        if (user) {
-          console.log(user);
-          if (!(user in responses)) {
-            responses[user] = {name: user};
-          }
-          responses[user][this.models[i].get("content").toLowerCase()] =
-              this.models[i].get("done");
-        }
-      }
-      console.log(responses);
-      for (var key in responses) {
-        this.addOne(responses[key]);
-      };
-    }
+      this.models.forEach(function(model) {
+        var username = model.get("username");
+        var day = model.get("content");
+        var yes = model.get("done");
 
+        if (username) {
+          // TODO when would this be false??
+
+          if (!(username in responses)) {
+            responses[username] = {
+              username: username,
+              isCurrentUser: false,
+              yeses: []
+            };
+          }
+
+          responses[username].yeses[dayIndex[day]] = yes;
+        }
+      });
+
+      return _.values(responses);
+    }
   });
 
-  // Todo Collection
-  // ---------------
+  // TODO how much of this is needed? E.g. maybe Parse needs some of these; if so, document which.
+  var ThisUserRSVPList = Parse.Collection.extend({
+    model: RSVPModel,
 
-  var TodoList = Parse.Collection.extend({
-
-    // Reference to this collection's model.
-    model: Todo,
-
-    // Filter down the list of all todo items that are finished.
-    done: function() {
-      return this.filter(function(todo){ return todo.get('done'); });
-    },
-
-    // Filter down the list to only todo items that are still not finished.
-    remaining: function() {
-      return this.without.apply(this, this.done());
-    },
-
-    // We keep the Todos in sequential order, despite being saved by unordered
-    // GUID in the database. This generates the next order number for new items.
-    nextOrder: function() {
-      if (!this.length) return 1;
-      return this.last().get('order') + 1;
-    },
-
-    // Todos are sorted by their original insertion order.
-    comparator: function(todo) {
-      return todo.get('order');
-    },
-    
     // Create new items (for new users)
     createAll: function() {
       this.createEntry("Monday");
@@ -95,337 +71,177 @@ $(function() {
       this.createEntry("Friday");
     },
 
-    createEntry: function(content) {
+    comparator: function (model) {
+      return dayIndex[model.get("content")];
+    },
+
+    createEntry: function(day) {
       var acl = new Parse.ACL(Parse.User.current());
       acl.setPublicReadAccess(true); // In long run, scope to friends
 
       this.create({
-        content: content,
-        order:   this.nextOrder(),
-        done:    false,
-        user:    Parse.User.current(),
+        content:  day,
+        done:     false, // done = yes
+        user:     Parse.User.current(),
         username: Parse.User.current().get("Name"),
-        ACL:     acl
-      });
-    }
-
-  });
-
-  // Todo Item View
-  // --------------
-
-  // The DOM element for a todo item...
-  var TodoView = Parse.View.extend({
-
-    //... is a list tag.
-    tagName:  "li",
-
-    // Cache the template function for a single item.
-    template: _.template($('#item-template').html()),
-
-    // The DOM events specific to an item.
-    events: {
-      "click .toggle"              : "toggleDone",
-      "dblclick label.todo-content" : "edit",
-      "blur .edit"          : "close"
-    },
-
-    // The TodoView listens for changes to its model, re-rendering. Since there's
-    // a one-to-one correspondence between a Todo and a TodoView in this
-    // app, we set a direct reference on the model for convenience.
-    initialize: function() {
-      _.bindAll(this, 'render', 'close', 'remove');
-      this.model.bind('change', this.render);
-    },
-
-    // Re-render the contents of the todo item.
-    render: function() {
-      $(this.el).html(this.template(this.model.toJSON()));
-      this.input = this.$('.edit');
-      return this;
-    },
-
-    // Toggle the `"done"` state of the model.
-    toggleDone: function() {
-      this.model.toggle();
-    },
-
-    // Switch this view into `"editing"` mode, displaying the input field.
-    edit: function() {
-      $(this.el).addClass("editing");
-      this.input.focus();
-    },
-
-    // Close the `"editing"` mode, saving changes to the todo.
-    close: function() {
-      this.model.save({content: this.input.val()});
-      $(this.el).removeClass("editing");
-    },
-
-  });
-
-
-  // Rsvp View
-  // --------------
-
-  // The DOM element for a friend's rsvp
-  var RsvpView = Parse.View.extend({
-
-    //... is a table row
-    tagName:  "tr",
-
-    // Cache the template function for a single item.
-    template: _.template($('#rsvp-template').html()),
-
-    initialize: function() {
-    },
-
-    // Re-render the contents of the todo item.
-    render: function() {
-      // not sure why constructor magic doesn't work here
-      $(this.el).html(this.template(this.options.data));
-      return this;
-    },
-
-  });
-
-  // The Application
-  // ---------------
-
-  // The main view that lets a user manage their todo items
-  var ManageTodosView = Parse.View.extend({
-
-    // Delegated events for creating new items, and clearing completed ones.
-    events: {
-      "click #toggle-all": "toggleAllComplete",
-      "click .log-out": "logOut",
-    },
-
-    el: ".content",
-
-    // At initialization we bind to the relevant events on the `Todos`
-    // collection, when items are added or changed. Kick things off by
-    // loading any preexisting todos that might be saved to Parse.
-    initialize: function() {
-      var self = this;
-
-      _.bindAll(this, 'addOne', 'addAll', 'render', 'toggleAllComplete', 'logOut');
-
-      // Main todo management template
-      this.$el.html(_.template($("#manage-calendar-template").html()));
-      
-      this.input = this.$("#prompt"); // should be disabled
-      this.allCheckbox = this.$("#toggle-all")[0];
-
-      // Create our collection of Todos
-      this.todos = new TodoList;
-
-      // Setup the query for the collection to look for todos from the current user
-      this.todos.query = new Parse.Query(Todo);
-      this.todos.query.equalTo("user", Parse.User.current());
-        
-      this.todos.bind('add',     this.addOne);
-      this.todos.bind('reset',   this.addAll);
-      this.todos.bind('all',     this.render);
-
-      // Fetch all the todo items for this user
-      this.todos.fetch({
-        success: function(todos) {
-          // If no saved items, create them!
-          if (!todos.length) {
-            todos.createAll();
-          }
-        }
+        ACL:      acl
       });
     },
 
-    // Logs out the user and shows the login view
-    logOut: function(e) {
-      Parse.User.logOut();
-      new LogInView();
-      this.undelegateEvents();
-      delete this;
-    },
-
-    // Re-rendering the App just means refreshing the statistics -- the rest
-    // of the app doesn't change.
-    render: function() {
-      var remaining = this.todos.remaining().length;
-
-      this.delegateEvents();
-
-      this.allCheckbox.checked = !remaining;
-    },
-
-    // Add a single todo item to the list by creating a view for it, and
-    // appending its element to the `<ul>`.
-    addOne: function(todo) {
-      var view = new TodoView({model: todo});
-      this.$("#todo-list").append(view.render().el);
-    },
-
-    // Add all items in the Todos collection at once.
-    addAll: function(collection, filter) {
-      this.$("#todo-list").html("");
-      this.todos.each(this.addOne);
-    },
-
-    toggleAllComplete: function () {
-      var done = this.allCheckbox.checked;
-      this.todos.each(function (todo) { todo.save({'done': done}); });
+    getRenderData: function() {
+      return {
+        username: Parse.User.current().get("Name"),
+        isCurrentUser: true,
+        yeses: this.models.map(function (model) { return model.get('done'); })
+      };
     }
   });
 
-  // The main view that lets a user see friends' availability
-  var FriendsView = Parse.View.extend({
+  var RSVPListView = Parse.View.extend({
+    rowTemplate: _.template($("#calendar-row-template").html()),
 
-    el: ".friends-content",
+    events: {
+      "click [data-dayindex]": "updateThisUserRSVPs"
+    },
 
-    // At initialization we bind to the relevant events on the `Todos`
-    // collection, when items are added or changed. Kick things off by
-    // loading any preexisting todos that might be saved to Parse.
     initialize: function() {
-      var self = this;
+      this.thisUserRSVPs = new ThisUserRSVPList();
 
-      _.bindAll(this, 'render');
+      // Setup the query for the collection to look for RSVPs from the current user
+      this.thisUserRSVPs.query = new Parse.Query(RSVPModel);
+      this.thisUserRSVPs.query.equalTo("user", Parse.User.current());
 
-      this.rsvps = new RsvpList;
-
-      // Calendar Template needed, include but list, one for each friend?
-      //this.$el.html(_.template($("#friends-calendar-template").html()));
-      this.rsvps.query = new Parse.Query(Todo);
-      this.rsvps.query.notEqualTo("user", Parse.User.current());
-        
-      this.rsvps.addOne = _.bind(this.addOne, this);
-      //this.todos.bind('reset',   this.addAll);
-      //this.todos.bind('all',     this.render);
-
-      // Fetch all the todo items for this user
-      this.rsvps.fetch({
+      // Fetch all the RSVPs for this user
+      this.thisUserRSVPs.fetch({
         success: function(rsvps) {
-          rsvps.makeTable();
-        }
+          // If no saved items, create them!
+          if (!rsvps.length) {
+            rsvps.createAll();
+          }
+          this.render();
+        }.bind(this)
       });
 
-      this.render();
+      this.othersRSVPs = new OthersRSVPList();
+
+      // TODO: it appears we could probably unify into a single collection instead of separate...
+      this.othersRSVPs.query = new Parse.Query(RSVPModel);
+      this.othersRSVPs.query.notEqualTo("user", Parse.User.current());
+
+      // Fetch all the todo items for this user
+      this.othersRSVPs.fetch({
+        success: function(rsvps) {
+          this.render();
+        }.bind(this)
+      });
     },
 
-    // Re-rendering this probably is irrelevant?
     render: function() {
-      this.delegateEvents();
+      var thisUserHTML = this.rowTemplate(this.thisUserRSVPs.getRenderData());
+      var othersHTML = this.othersRSVPs.getRenderData().reduce(function (soFar, data) {
+        return soFar + this.rowTemplate(data);
+      }.bind(this), "");
+
+      this.$el.html(thisUserHTML + othersHTML);
+
+      // Make Material Design Light do its thing.
+      Array.prototype.forEach.call(this.el.querySelectorAll('[class^="mdl-"]'), function (el) {
+        componentHandler.upgradeElement(el);
+      });
     },
 
-    // Add a friend's rsvps to the list by creating a view for that friend
-    // appending its element to the `<table>`.
-    addOne: function(rsvp) {
-      console.log(rsvp);
-      var view = new RsvpView({data: rsvp});
-      this.$("#rsvp-list").append(view.render().el);
-    },
+    updateThisUserRSVPs: function(e) {
+      // This isn't great practice, but it's a bit simpler than having a view per checkbox.
+      // If we straighten out the data model a bit we can also clean this up.
+      var changedIndex = e.target.getAttribute("data-dayindex");
+      var checked = e.target.checked;
 
+      var model = this.thisUserRSVPs.find(function (model) { return model.get('content') === days[changedIndex]; });
+      console.log("found model", model.attributes);
+      model.setYes(checked);
+    }
   });
 
-  var LogInView = Parse.View.extend({
+  var AppView = Parse.View.extend({
     events: {
+      "click .log-out": "logOut",
       "submit form.login-form": "logIn",
       "submit form.signup-form": "signUp"
     },
 
-    el: ".content",
-    
-    initialize: function() {
-      _.bindAll(this, "logIn", "signUp");
-      this.render();
+    mainTemplates: {
+      login: _.template($("#login-template").html()),
+      calendar: _.template($("#calendar-template").html())
     },
-
-    logIn: function(e) {
-      var self = this;
-      var username = this.$("#login-username").val();
-      var password = this.$("#login-password").val();
-      
-      Parse.User.logIn(username, password, {
-        success: function(user) {
-          new ManageTodosView();
-          self.undelegateEvents();
-          delete self;
-        },
-
-        error: function(user, error) {
-          self.$(".login-form .error").html("Invalid username or password. Please try again.").show();
-          self.$(".login-form button").removeAttr("disabled");
-        }
-      });
-
-      this.$(".login-form button").attr("disabled", "disabled");
-
-      return false;
-    },
-
-    signUp: function(e) {
-      var self = this;
-      var username = this.$("#signup-username").val();
-      var password = this.$("#signup-password").val();
-      
-      Parse.User.signUp(username, password, { Name : username,
-          ACL: new Parse.ACL() }, {
-        success: function(user) {
-          new ManageTodosView();
-          new FriendsView();
-          self.undelegateEvents();
-          delete self;
-        },
-
-        error: function(user, error) {
-          self.$(".signup-form .error").html(_.escape(error.message)).show();
-          self.$(".signup-form button").removeAttr("disabled");
-        }
-      });
-
-      this.$(".signup-form button").attr("disabled", "disabled");
-
-      return false;
-    },
-
-    render: function() {
-      this.$el.html(_.template($("#login-template").html()));
-      this.delegateEvents();
-    }
-  });
-
-  // The main view for the app
-  var CalendarView = Parse.View.extend({
-    // Instead of generating a new element, bind to the existing skeleton of
-    // the App already present in the HTML.
-    //el: $("#calendarapp"),
-
-    initialize: function() {
-      this.render();
-    },
-
-    render: function() {
-      new ManageTodosView();
-      new FriendsView();
-    }
-  });
-
-  // The main view for the app
-  var AppView = Parse.View.extend({
-    // Instead of generating a new element, bind to the existing skeleton of
-    // the App already present in the HTML.
-    el: $("#calendarapp"),
-
-    initialize: function() {
-      this.render();
+    footerTemplates: {
+      login: _.template(""),
+      calendar: _.template($("#calendar-footer-template").html())
     },
 
     render: function() {
       if (Parse.User.current()) {
-        new CalendarView();
+        this.renderInState("calendar");
       } else {
-        new LogInView();
+        this.renderInState("login");
       }
-    }
+    },
+
+    renderInState: function(state) {
+      this.$("main").html(this.mainTemplates[state]());
+      this.$("footer").html(this.footerTemplates[state]());
+
+      if (state === "calendar") {
+        new RSVPListView({ el: this.$("#availability-table tbody") });
+      }
+    },
+
+    logOut: function() {
+      Parse.User.logOut();
+      this.renderInState("login");
+    },
+
+    logIn: function(e) {
+      var username = this.$("#login-username").val();
+      var password = this.$("#login-password").val();
+      this.$(".login-form button").prop("disabled", true);
+
+      Parse.User.logIn(username, password, {
+        success: function(user) {
+          this.renderInState("calendar");
+        }.bind(this),
+
+        error: function(user, error) {
+          this.$(".login-form .error").html("Invalid username or password. Please try again.").show();
+          this.$(".login-form button").prop("disabled", false);
+        }.bind(this)
+      });
+
+      e.preventDefault();
+    },
+
+    signUp: function(e) {
+      var username = this.$("#signup-username").val();
+      var password = this.$("#signup-password").val();
+      this.$(".login-form button").prop("disabled", true);
+
+      Parse.User.signUp(username, password, {
+        Name : username,
+        ACL: new Parse.ACL()
+      },
+      {
+        success: function(user) {
+          this.renderInState("calendar");
+        }.bind(this),
+
+        error: function(user, error) {
+          this.$(".login-form .error").text(error.message).show();
+          this.$(".login-form button").prop("disabled", false);
+        }.bind(this)
+      });
+
+      e.preventDefault();
+    },
   });
 
-  new AppView;
+  (new AppView({ el: document.body })).render();
 });
